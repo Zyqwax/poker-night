@@ -27,6 +27,7 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV DB_PATH=/app/data/poker-night.db
 
+RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN mkdir -p /app/data
 
 # Copy built server and web client
