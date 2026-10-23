@@ -35,6 +35,4 @@ COPY --from=builder /app/apps/web/dist /app/apps/web/dist
 
 EXPOSE 3001
 
-VOLUME ["/app/data"]
-
 CMD ["node", "dist/index.js"]
