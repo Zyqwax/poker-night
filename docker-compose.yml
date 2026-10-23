@@ -1,0 +1,15 @@
+services:
+  poker-night:
+    build: .
+    container_name: poker-night
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_PATH=/app/data/poker-night.db
+    volumes:
+      - poker_data:/app/data
+
+volumes:
+  poker_data:

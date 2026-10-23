@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #110D12;
+    color: #E7E5E4;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}

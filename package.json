@@ -1,0 +1,17 @@
+{
+  "name": "poker-night",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Texas Hold'em PWA web app with private rooms, dealer bot, and SQLite persistence",
+  "scripts": {
+    "dev:server": "pnpm --filter @poker-night/server dev",
+    "dev:web": "pnpm --filter @poker-night/web dev",
+    "dev": "pnpm --filter @poker-night/server dev & pnpm --filter @poker-night/web dev",
+    "build": "pnpm --filter @poker-night/shared build && pnpm --filter @poker-night/engine build && pnpm --filter @poker-night/server build && pnpm --filter @poker-night/web build",
+    "start": "pnpm --filter @poker-night/server start",
+    "test": "pnpm --filter @poker-night/engine test && pnpm --filter @poker-night/server test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
