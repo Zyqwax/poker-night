@@ -32,7 +32,8 @@ RUN mkdir -p /app/data
 
 # Copy built server and web client
 COPY --from=builder /app/deployed-server ./
-COPY --from=builder /app/apps/web/dist /app/apps/web/dist
+COPY --from=builder /app/apps/web/dist ./apps/web/dist
+COPY --from=builder /app/apps/web/dist ./web-dist
 
 EXPOSE 3001
 

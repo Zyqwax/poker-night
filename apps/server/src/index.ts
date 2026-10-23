@@ -13,13 +13,24 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const webDistPath = path.resolve(__dirname, '../../web/dist');
+
+const possibleWebPaths = [
+  process.env.WEB_DIST_PATH,
+  path.resolve(process.cwd(), 'apps/web/dist'),
+  path.resolve(process.cwd(), 'web-dist'),
+  path.resolve(__dirname, '../apps/web/dist'),
+  path.resolve(__dirname, '../../apps/web/dist'),
+  path.resolve(__dirname, '../../web/dist'),
+  path.resolve(__dirname, '../web/dist'),
+].filter(Boolean) as string[];
+
+const webDistPath = possibleWebPaths.find((p) => fs.existsSync(p)) || '';
 
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-if (fs.existsSync(webDistPath)) {
+if (webDistPath) {
   app.use(express.static(webDistPath));
 }
 
@@ -61,7 +72,7 @@ app.get('/api/history/:roomCode', (req, res) => {
   res.json(hands);
 });
 
-if (fs.existsSync(webDistPath)) {
+if (webDistPath) {
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io') || req.path.startsWith('/health')) {
       return next();
@@ -75,6 +86,7 @@ const PORT = process.env.PORT || 3001;
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`[Poker Night Server] running on http://localhost:${PORT}`);
+    console.log(`[Poker Night Server] Web static serving from: ${webDistPath || 'NOT FOUND'}`);
   });
 }
 
