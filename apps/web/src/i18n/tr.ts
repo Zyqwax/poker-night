@@ -65,6 +65,9 @@ export const t = {
     rebuy: 'Rebuy (Chip bitince yeniden alma)',
     saveChanges: 'Ayarları Güncelle',
     readOnlyNotice: 'Blind ve chip tutarları oyun başladıktan sonra değiştirilemez.',
+    personalSettings: 'Kişisel Tercihler',
+    soundEffects: 'Ses Efektleri',
+    soundEffectsDesc: 'Kart dağıtma, chip, hamle ve sıra bildirim sesleri',
     close: 'Kapat',
   },
   table: {
@@ -107,6 +110,10 @@ export const t = {
     restartGameBtn: 'Yeniden Başlat (Chip\'leri Sıfırla)',
     returnToLobbyBtn: 'Lobiye Dön',
     waitingHostRestart: 'Kurucunun oyunu yeniden başlatması bekleniyor...',
+    soundOn: 'Sesi Kapat',
+    soundOff: 'Sesi Aç',
+    holdToActHint: 'Yanlış tıklamaları önlemek için butonlara 500ms basılı tutun.',
+    holdPrompt: '500ms basılı tut',
   },
   historyModal: {
     title: 'Oda Geçmişi ve İstatistikler',

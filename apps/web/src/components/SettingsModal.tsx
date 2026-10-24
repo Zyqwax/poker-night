@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, Volume2, VolumeX } from 'lucide-react';
 import { RoomSettings } from '@poker-night/shared';
 import { t } from '../i18n/tr.js';
+import { soundManager } from '../utils/sound.js';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSave,
 }) => {
   const [form, setForm] = useState<RoomSettings>({ ...settings });
+  const [soundEnabled, setSoundEnabled] = useState(() => soundManager.isEnabled());
 
   if (!isOpen) return null;
 
@@ -183,6 +185,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="w-4 h-4 rounded accent-poker-gold"
                 />
                 <span className="text-xs text-stone-300">{t.settingsModal.rebuy}</span>
+              </label>
+            </div>
+
+            {/* Personal Settings: Sound Effects (Available to everyone) */}
+            <div className="pt-3 border-t border-poker-border/60 space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-stone-400 block">
+                {t.settingsModal.personalSettings}
+              </span>
+              <label className="flex items-center justify-between p-3 rounded-xl bg-poker-dark border border-poker-border cursor-pointer hover:border-poker-gold/40 transition-colors">
+                <div className="flex items-center gap-2.5">
+                  {soundEnabled ? (
+                    <Volume2 size={18} className="text-poker-gold shrink-0" />
+                  ) : (
+                    <VolumeX size={18} className="text-stone-500 shrink-0" />
+                  )}
+                  <div>
+                    <span className="text-xs font-semibold text-stone-200 block">
+                      {t.settingsModal.soundEffects}
+                    </span>
+                    <span className="text-[11px] text-stone-400 block">
+                      {t.settingsModal.soundEffectsDesc}
+                    </span>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={soundEnabled}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    setSoundEnabled(next);
+                    soundManager.setEnabled(next);
+                    if (next) soundManager.playClick();
+                  }}
+                  className="w-4 h-4 rounded accent-poker-gold cursor-pointer"
+                />
               </label>
             </div>
 

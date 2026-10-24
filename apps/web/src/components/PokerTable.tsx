@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { WifiOff } from 'lucide-react';
+import { WifiOff, Volume2, VolumeX } from 'lucide-react';
 import { Card, PlayerPublicState, formatRoomCode } from '@poker-night/shared';
 import { detectCurrentBestHand } from '@poker-night/engine';
 import { useSocket } from '../context/SocketContext.js';
@@ -9,6 +9,8 @@ import { CardView } from './CardView.js';
 import { SettingsModal } from './SettingsModal.js';
 import { HistoryAndStatsModal } from './HistoryAndStatsModal.js';
 import { HandRankingsModal } from './HandRankingsModal.js';
+import { HoldButton } from './HoldButton.js';
+import { soundManager } from '../utils/sound.js';
 
 /**
  * Calculates coordinates on the upper ellipse arc for opponent seats
@@ -66,6 +68,7 @@ export const PokerTable: React.FC = () => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [raiseAmount, setRaiseAmount] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [soundEnabled, setSoundEnabled] = useState(() => soundManager.isEnabled());
 
   const game = roomState?.game;
   const isHost = roomState?.hostId === playerId;
@@ -82,6 +85,53 @@ export const PokerTable: React.FC = () => {
       game.currentTurnSeat === currentPlayer.seatIndex &&
       currentPlayer.status === 'active'
   );
+
+  // Audio effect triggers
+  const prevIsMyTurn = useRef(false);
+  useEffect(() => {
+    if (isMyTurn && !prevIsMyTurn.current) {
+      soundManager.playTurnAlert();
+    }
+    prevIsMyTurn.current = isMyTurn;
+  }, [isMyTurn]);
+
+  const prevCommunityCount = useRef(game?.communityCards.length || 0);
+  useEffect(() => {
+    const currentCount = game?.communityCards.length || 0;
+    if (currentCount > prevCommunityCount.current) {
+      soundManager.playCard();
+    }
+    prevCommunityCount.current = currentCount;
+  }, [game?.communityCards.length]);
+
+  const prevHoleCardsLength = useRef(myHoleCards.length);
+  useEffect(() => {
+    if (myHoleCards.length > 0 && prevHoleCardsLength.current === 0) {
+      soundManager.playCard();
+    }
+    prevHoleCardsLength.current = myHoleCards.length;
+  }, [myHoleCards.length]);
+
+  const prevWinnerCount = useRef(game?.winners.length || 0);
+  useEffect(() => {
+    const winCount = game?.winners.length || 0;
+    if (winCount > 0 && prevWinnerCount.current === 0) {
+      soundManager.playWin();
+    }
+    prevWinnerCount.current = winCount;
+  }, [game?.winners.length]);
+
+  const prevLastAction = useRef(game?.lastAction);
+  useEffect(() => {
+    if (game?.lastAction && game.lastAction !== prevLastAction.current) {
+      if (game.lastAction.playerId !== playerId) {
+        if (game.lastAction.action === 'fold') soundManager.playFold();
+        else if (game.lastAction.action === 'check') soundManager.playCheck();
+        else soundManager.playChips();
+      }
+    }
+    prevLastAction.current = game?.lastAction;
+  }, [game?.lastAction, playerId]);
 
   // Turn timer countdown
   useEffect(() => {
@@ -263,6 +313,20 @@ export const PokerTable: React.FC = () => {
             className="hover:text-[#D5A04D] transition-colors"
           >
             {isFullscreen ? t.table.exitFullscreen : t.table.fullscreen}
+          </button>
+          <button
+            onClick={() => {
+              const next = soundManager.toggle();
+              setSoundEnabled(next);
+            }}
+            title={soundEnabled ? t.table.soundOn : t.table.soundOff}
+            className="hover:text-[#D5A04D] transition-colors flex items-center gap-1 pl-1"
+          >
+            {soundEnabled ? (
+              <Volume2 size={16} className="text-[#D5A04D]" />
+            ) : (
+              <VolumeX size={16} className="text-stone-500" />
+            )}
           </button>
         </div>
       </div>
@@ -537,61 +601,72 @@ export const PokerTable: React.FC = () => {
             </div>
           </div>
 
-          {/* Action Buttons Grid */}
+          {/* Action Buttons Grid with 500ms Hold to Act */}
           <div className="flex flex-col gap-2 sm:gap-2.5">
+            {/* Hold Hint */}
+            <div className="text-[10px] sm:text-[11px] text-stone-400 text-center flex items-center justify-center gap-1.5 opacity-80">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D5A04D] animate-pulse" />
+              <span>{t.table.holdToActHint}</span>
+            </div>
+
             {/* Row 1: Fold and Check / Call */}
             <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
               {/* Fold */}
-              <button
-                type="button"
+              <HoldButton
                 disabled={!isMyTurn}
-                onClick={() => sendAction('fold')}
-                className="py-3 rounded-xl bg-[#3B1824] hover:bg-[#4E2130] border border-[#582535] text-white font-serif font-bold text-base sm:text-lg shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                onTrigger={() => sendAction('fold')}
+                soundType="fold"
+                progressColor="bg-rose-500/30"
+                className="py-3 rounded-xl bg-[#3B1824] hover:bg-[#4E2130] border border-[#582535] text-white font-serif font-bold text-base sm:text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {t.table.fold}
-              </button>
+              </HoldButton>
 
               {/* Check / Call (Dedicated button, not swapped with Raise) */}
               {canCall ? (
-                <button
-                  type="button"
+                <HoldButton
                   disabled={!isMyTurn}
-                  onClick={() => sendAction('call')}
-                  className="py-3 rounded-xl bg-[#1B463F] hover:bg-[#255D53] border border-[#2B6A5F] text-emerald-100 font-serif font-bold text-base sm:text-lg shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                  onTrigger={() => sendAction('call')}
+                  soundType="call"
+                  progressColor="bg-emerald-400/30"
+                  className="py-3 rounded-xl bg-[#1B463F] hover:bg-[#255D53] border border-[#2B6A5F] text-emerald-100 font-serif font-bold text-base sm:text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {t.table.call} {actualCallToPay}
-                </button>
+                </HoldButton>
               ) : (
-                <button
-                  type="button"
+                <HoldButton
                   disabled={!isMyTurn || !canCheck}
-                  onClick={() => sendAction('check')}
-                  className="py-3 rounded-xl bg-[#231A1E] hover:bg-[#32252B] border border-stone-800 text-stone-200 font-serif font-bold text-base sm:text-lg shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                  onTrigger={() => sendAction('check')}
+                  soundType="check"
+                  progressColor="bg-stone-400/30"
+                  className="py-3 rounded-xl bg-[#231A1E] hover:bg-[#32252B] border border-stone-800 text-stone-200 font-serif font-bold text-base sm:text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {t.table.check}
-                </button>
+                </HoldButton>
               )}
             </div>
 
             {/* Row 2: Raise (Dedicated Full-Width Button) */}
-            <button
-              type="button"
+            <HoldButton
               disabled={!isMyTurn || !canRaise}
-              onClick={() => sendAction('raise', raiseAmount)}
-              className="w-full py-3 sm:py-3.5 rounded-xl bg-[#1E4D46] hover:bg-[#276259] border border-[#2F7166] text-white font-serif font-bold text-lg sm:text-xl shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              onTrigger={() => sendAction('raise', raiseAmount)}
+              soundType="raise"
+              progressColor="bg-teal-400/30"
+              className="w-full py-3 sm:py-3.5 rounded-xl bg-[#1E4D46] hover:bg-[#276259] border border-[#2F7166] text-white font-serif font-bold text-lg sm:text-xl shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t.table.raise} {raiseAmount}
-            </button>
+            </HoldButton>
 
             {/* Row 3: All in (Dedicated Full-Width Button) */}
-            <button
-              type="button"
+            <HoldButton
               disabled={!isMyTurn || (currentPlayer?.chips || 0) <= 0}
-              onClick={() => sendAction('all-in')}
-              className="w-full py-3 sm:py-3.5 rounded-xl bg-[#C18C39] hover:bg-[#D59C42] border border-[#D9A54E] text-[#1D1307] font-serif font-black text-lg sm:text-xl shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              onTrigger={() => sendAction('all-in')}
+              soundType="all-in"
+              progressColor="bg-amber-300/40"
+              className="w-full py-3 sm:py-3.5 rounded-xl bg-[#C18C39] hover:bg-[#D59C42] border border-[#D9A54E] text-[#1D1307] font-serif font-black text-lg sm:text-xl shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t.table.allIn}
-            </button>
+            </HoldButton>
           </div>
 
           {/* Rebuy option if chips are 0 */}
