@@ -27,4 +27,6 @@ export interface Room {
   statsMap: Map<string, PlayerGameStats>;
   lastActivityAt: number;
   previousDealerSeat: number;
+  isGameOver?: boolean;
+  gameWinner?: { playerId: string; nick: string; chips: number } | null;
 }

@@ -145,6 +145,8 @@ export interface RoomStatePayload {
   dealerBotStatus: 'ready' | 'dealing' | 'waiting' | 'idle';
   history: HandHistoryItem[];
   stats: PlayerGameStats[];
+  isGameOver?: boolean;
+  gameWinner?: { playerId: string; nick: string; chips: number } | null;
 }
 
 // Socket Events
@@ -158,6 +160,8 @@ export const SOCKET_EVENTS = {
   GAME_START: 'game:start',
   GAME_ACTION: 'game:action',
   GAME_REBUY: 'game:rebuy',
+  GAME_RESTART: 'game:restart',
+  GAME_RETURN_TO_LOBBY: 'game:return_to_lobby',
   ROOM_KICK_PLAYER: 'room:kick_player',
 
   // Server to Client

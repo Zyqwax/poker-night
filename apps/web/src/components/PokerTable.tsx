@@ -54,6 +54,10 @@ export const PokerTable: React.FC = () => {
     updateSettings,
     rebuy,
     kickPlayer,
+    startGame,
+    restartGame,
+    returnToLobby,
+    leaveRoom,
   } = useSocket();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -103,11 +107,52 @@ export const PokerTable: React.FC = () => {
     }
   }, [game?.minRaise, currentPlayer?.seatIndex]);
 
-  // Fullscreen toggle
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+  // Orientation lock & portrait detector
+  const [isPortrait, setIsPortrait] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerHeight > window.innerWidth && window.innerWidth < 1024;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      const portrait = window.innerHeight > window.innerWidth && window.innerWidth < 1024;
+      setIsPortrait(portrait);
+    };
+
+    try {
+      (screen.orientation as any)?.lock?.('landscape').catch(() => {});
+    } catch {}
+
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, []);
+
+  const handleRequestLandscape = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+      await (screen.orientation as any)?.lock?.('landscape');
       setIsFullscreen(true);
+    } catch {
+      // Browser requires physical rotation
+    }
+  };
+
+  // Fullscreen toggle with orientation lock
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+        (screen.orientation as any)?.lock?.('landscape').catch(() => {});
+      } catch {}
     } else {
       document.exitFullscreen().catch(() => {});
       setIsFullscreen(false);
@@ -147,8 +192,48 @@ export const PokerTable: React.FC = () => {
   const otherPlayers = reorderedPlayers.filter((p) => p.id !== playerId);
   const formattedRoomCode = formatRoomCode(roomState.code);
 
+  const isHandEnded = Boolean(
+    game && (game.stage === 'ended' || (game.winners && game.winners.length > 0))
+  );
+  const isGameOver = Boolean(roomState.isGameOver);
+
   return (
     <div className="h-screen h-[100dvh] max-h-[100dvh] bg-[#140E10] flex flex-col justify-between p-2 sm:p-4 select-none text-stone-200 overflow-hidden relative">
+      {/* Forced Landscape Overlay for Mobile/Tablet in Portrait */}
+      {isPortrait && (
+        <div className="fixed inset-0 z-50 bg-[#120C0E] flex flex-col items-center justify-center p-6 text-center select-none backdrop-blur-md">
+          {/* Animated Rotating Phone Graphic */}
+          <motion.div
+            animate={{ rotate: [0, -90, -90, 0] }}
+            transition={{
+              repeat: Infinity,
+              duration: 2.5,
+              ease: 'easeInOut',
+              times: [0, 0.45, 0.8, 1],
+            }}
+            className="w-14 h-24 sm:w-16 sm:h-28 border-4 border-[#D5A04D] rounded-2xl flex items-center justify-center relative mb-6 shadow-[0_0_30px_rgba(213,160,77,0.25)]"
+          >
+            <div className="w-2 h-2 rounded-full bg-[#D5A04D]/60 absolute bottom-2" />
+            <div className="w-8 h-1 bg-[#D5A04D]/40 rounded absolute top-2" />
+            <span className="text-[#D5A04D] text-2xl font-serif select-none">♠</span>
+          </motion.div>
+
+          <h2 className="font-serif font-bold text-2xl sm:text-3xl text-[#EDE6DE] mb-2 tracking-tight">
+            {t.table.rotateDevice}
+          </h2>
+          <p className="text-xs sm:text-sm text-stone-400 max-w-xs mb-6 leading-relaxed">
+            {t.table.rotateNotice}
+          </p>
+
+          <button
+            onClick={handleRequestLandscape}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#D5A04D] to-[#B88236] text-[#160E11] font-serif font-bold text-sm sm:text-base shadow-xl hover:brightness-110 active:scale-95 transition-all"
+          >
+            {t.table.forceLandscapeBtn}
+          </button>
+        </div>
+      )}
+
       {/* Top Bar: Room Code on Left, Navigation Links on Right */}
       <div className="w-full max-w-[1400px] mx-auto flex items-center justify-between py-1.5 sm:py-2.5 px-2 sm:px-4 z-10 shrink-0">
         <div className="font-serif font-bold text-xl sm:text-2xl lg:text-3xl text-[#EDE6DE] tracking-tight">
@@ -523,6 +608,173 @@ export const PokerTable: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Game Over / Tournament Winner Modal */}
+      {isGameOver && (
+        <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-md bg-[#1C1116] border-2 border-[#D5A04D] rounded-2xl p-6 text-center shadow-2xl space-y-4"
+          >
+            <div className="text-4xl mb-1">🏆</div>
+            <h2 className="text-2xl sm:text-3xl font-serif font-black text-amber-200">
+              {t.table.gameOverTitle}
+            </h2>
+            <p className="text-sm text-stone-300">
+              <span className="font-bold text-[#D5A04D] text-base">
+                {roomState.gameWinner?.nick || 'Şampiyon'}
+              </span>{' '}
+              {t.table.allChipsWon}
+            </p>
+
+            {/* Standings table */}
+            <div className="bg-[#120B0E] border border-stone-800 rounded-xl p-3 max-h-48 overflow-y-auto space-y-2 text-xs">
+              {roomState.players
+                .slice()
+                .sort((a, b) => b.chips - a.chips)
+                .map((p, rank) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between py-1.5 px-3 rounded bg-[#1B1115] border border-stone-800/60"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-stone-500 font-mono font-bold">#{rank + 1}</span>
+                      <span
+                        className={`font-semibold ${
+                          p.id === roomState.gameWinner?.playerId
+                            ? 'text-[#D5A04D]'
+                            : 'text-stone-200'
+                        }`}
+                      >
+                        {p.nick}
+                      </span>
+                    </div>
+                    <span className="font-serif font-bold text-amber-100">
+                      {p.chips > 0 ? `${p.chips.toLocaleString()} chip` : 'Elendi (0 chip)'}
+                    </span>
+                  </div>
+                ))}
+            </div>
+
+            {/* Action buttons */}
+            <div className="pt-2 flex flex-col gap-2">
+              {isHost ? (
+                <>
+                  <button
+                    onClick={restartGame}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-[#D5A04D] to-[#BA8538] text-[#160E11] font-serif font-black text-base shadow-xl hover:brightness-110 active:scale-95 transition-all"
+                  >
+                    {t.table.restartGameBtn}
+                  </button>
+                  <button
+                    onClick={returnToLobby}
+                    className="w-full py-2.5 rounded-xl bg-[#2D161F] hover:bg-[#3D1E2B] border border-[#542839] text-stone-200 font-serif font-bold text-sm transition-all"
+                  >
+                    {t.table.returnToLobbyBtn}
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-stone-400 italic">
+                    {t.table.waitingHostRestart}
+                  </p>
+                  <button
+                    onClick={leaveRoom}
+                    className="w-full py-2 rounded-xl bg-[#27151D] border border-stone-800 text-stone-300 text-xs hover:bg-stone-800 transition-colors"
+                  >
+                    Odadan Ayrıl
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Hand Ended (Showdown / Winner) Modal */}
+      {isHandEnded && !isGameOver && (
+        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-sm sm:max-w-md bg-[#1D1116] border border-[#D5A04D]/60 rounded-2xl p-5 sm:p-6 text-center shadow-2xl space-y-3.5"
+          >
+            <div className="inline-block px-3 py-1 rounded-full bg-[#D5A04D]/15 border border-[#D5A04D]/40 text-xs font-serif font-bold text-[#D5A04D]">
+              {t.table.handEndedTitle}
+            </div>
+
+            <div className="space-y-1">
+              <h2 className="text-2xl sm:text-3xl font-serif font-black text-white">
+                {game.winners.map((w) => w.nick).join(', ')} {t.table.wins}
+              </h2>
+              <p className="text-lg sm:text-xl font-serif font-bold text-amber-200 font-mono">
+                +{game.winners.reduce((sum, w) => sum + w.amount, 0).toLocaleString()} chip
+              </p>
+              {game.winners[0]?.handRankName && (
+                <p className="text-xs sm:text-sm text-stone-300 font-medium">
+                  {game.winners[0].handRankName}
+                </p>
+              )}
+            </div>
+
+            {/* Revealed Cards at Showdown */}
+            {showdownData && Object.keys(showdownData.cardsByPlayer).length > 0 && (
+              <div className="bg-[#120B0E] border border-stone-800/80 rounded-xl p-2.5 max-h-40 overflow-y-auto space-y-2">
+                {Object.entries(showdownData.cardsByPlayer).map(([pId, cards]) => {
+                  const pNick = roomState.players.find((pl) => pl.id === pId)?.nick || 'Oyuncu';
+                  const isWinner = game.winners.some((w) => w.playerId === pId);
+                  return (
+                    <div
+                      key={pId}
+                      className="flex items-center justify-between py-1 px-2 rounded bg-[#1A1015]"
+                    >
+                      <span
+                        className={`text-xs font-semibold ${
+                          isWinner ? 'text-[#D5A04D]' : 'text-stone-300'
+                        }`}
+                      >
+                        {pNick} {isWinner && '👑'}
+                      </span>
+                      <div className="flex items-center gap-1 scale-90 origin-right">
+                        {cards.map((c, i) => (
+                          <CardView key={i} card={c} size="sm" />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Next Hand Button for Host */}
+            <div className="pt-2">
+              {isHost ? (
+                <button
+                  onClick={startGame}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-[#D5A04D] to-[#BA8538] text-[#160E11] font-serif font-black text-base shadow-xl hover:brightness-110 active:scale-95 transition-all"
+                >
+                  {t.table.nextHandBtn}
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-stone-400 italic">
+                    {t.table.waitingHostNextHand}
+                  </p>
+                  {currentPlayer?.chips === 0 && roomState.settings.rebuy && (
+                    <button
+                      onClick={rebuy}
+                      className="px-4 py-1.5 bg-[#D5A04D] text-[#160E11] font-bold text-xs rounded-lg hover:bg-amber-400 shadow"
+                    >
+                      {t.table.rebuyBtn}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Modals */}
       <SettingsModal

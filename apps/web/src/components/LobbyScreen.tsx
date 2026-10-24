@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, Check, Settings, LogOut } from 'lucide-react';
+import { Copy, Check, Settings, LogOut, Bot } from 'lucide-react';
 import { useSocket } from '../context/SocketContext.js';
 import { t } from '../i18n/tr.js';
 import { SettingsModal } from './SettingsModal.js';
@@ -120,7 +120,10 @@ export const LobbyScreen: React.FC = () => {
 
           {/* Dealer Bot Row */}
           <div className="pt-3 flex items-center justify-between text-sm">
-            <span className="font-semibold text-stone-300">{t.lobby.dealer}</span>
+            <span className="font-semibold text-stone-300 flex items-center gap-1.5">
+              <Bot size={16} className="text-poker-gold shrink-0" />
+              <span>{t.lobby.dealer}</span>
+            </span>
             <span className="text-xs text-poker-gold font-medium">
               {t.lobby.dealerReady}
             </span>

@@ -216,10 +216,41 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, dealer
       dealerBot.broadcastRoomState(room);
     });
 
-    // Leave Room
-    socket.on(SOCKET_EVENTS.ROOM_LEAVE, () => {
+    // Restart Game (Host only)
+    socket.on(SOCKET_EVENTS.GAME_RESTART, () => {
       const roomCode = socket.data.roomCode;
       const playerId = socket.data.playerId;
+      if (!roomCode || !playerId) return;
+
+      const room = roomManager.getRoom(roomCode);
+      if (!room || room.hostPlayerId !== playerId) return;
+
+      dealerBot.restartGame(room);
+    });
+
+    // Return to Lobby (Host only)
+    socket.on(SOCKET_EVENTS.GAME_RETURN_TO_LOBBY, () => {
+      const roomCode = socket.data.roomCode;
+      const playerId = socket.data.playerId;
+      if (!roomCode || !playerId) return;
+
+      const room = roomManager.getRoom(roomCode);
+      if (!room || room.hostPlayerId !== playerId) return;
+
+      dealerBot.returnToLobby(room);
+    });
+
+    // Leave Room
+    socket.on(SOCKET_EVENTS.ROOM_LEAVE, (rawPayload?: unknown) => {
+      let roomCode = socket.data.roomCode;
+      let playerId = socket.data.playerId;
+
+      if ((!roomCode || !playerId) && typeof rawPayload === 'object' && rawPayload !== null) {
+        const p = rawPayload as { code?: string; playerId?: string };
+        if (p.code) roomCode = parseRoomCode(p.code);
+        if (p.playerId) playerId = p.playerId;
+      }
+
       if (!roomCode || !playerId) return;
 
       const room = roomManager.getRoom(roomCode);

@@ -9,7 +9,15 @@ import {
   SOCKET_EVENTS,
   parseRoomCode,
 } from '@poker-night/shared';
-import { getOrCreatePlayerId, getSavedNick, saveNick, saveRecentRoom } from '../utils/storage.js';
+import {
+  getOrCreatePlayerId,
+  getSavedNick,
+  saveNick,
+  saveRecentRoom,
+  getActiveRoom,
+  saveActiveRoom,
+  clearActiveRoom,
+} from '../utils/storage.js';
 
 interface SocketContextValue {
   socket: Socket | null;
@@ -18,6 +26,7 @@ interface SocketContextValue {
   nick: string;
   setNick: (newNick: string) => void;
   roomState: RoomStatePayload | null;
+  activeRoomCode: string | null;
   myHoleCards: Card[];
   showdownData: { cardsByPlayer: Record<string, Card[]>; winners: HandWinner[] } | null;
   lastError: string | null;
@@ -25,12 +34,15 @@ interface SocketContextValue {
   createRoom: (customSettings?: Partial<RoomSettings>) => void;
   joinRoom: (code: string) => void;
   leaveRoom: () => void;
+  abandonActiveRoom: (code?: string) => void;
   toggleReady: () => void;
   startGame: () => void;
   sendAction: (action: ActionType, amount?: number) => void;
   updateSettings: (settings: Partial<RoomSettings>) => void;
   rebuy: () => void;
   kickPlayer: (targetPlayerId: string) => void;
+  restartGame: () => void;
+  returnToLobby: () => void;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
@@ -41,6 +53,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [playerId] = useState<string>(() => getOrCreatePlayerId());
   const [nick, setNickState] = useState<string>(() => getSavedNick());
   const [roomState, setRoomState] = useState<RoomStatePayload | null>(null);
+  const [activeRoomCode, setActiveRoomCode] = useState<string | null>(() => getActiveRoom());
   const [myHoleCards, setMyHoleCards] = useState<Card[]>([]);
   const [showdownData, setShowdownData] = useState<{
     cardsByPlayer: Record<string, Card[]>;
@@ -78,6 +91,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     s.on(SOCKET_EVENTS.ROOM_STATE, (payload: RoomStatePayload) => {
       setRoomState(payload);
       saveRecentRoom(payload.code);
+      saveActiveRoom(payload.code);
+      setActiveRoomCode(payload.code);
       // Clear showdown data if a new active hand starts
       if (payload.game && payload.game.stage !== 'ended') {
         setShowdownData(null);
@@ -97,6 +112,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     s.on(SOCKET_EVENTS.ROOM_ERROR, (err: { message: string }) => {
       setLastError(err.message);
+      if (err.message && err.message.toLowerCase().includes('oda bulunamadı')) {
+        clearActiveRoom();
+        setActiveRoomCode(null);
+      }
     });
 
     setSocket(s);
@@ -134,11 +153,28 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const leaveRoom = useCallback(() => {
     if (!socket) return;
-    socket.emit(SOCKET_EVENTS.ROOM_LEAVE);
+    const code = roomState?.code || activeRoomCode;
+    socket.emit(SOCKET_EVENTS.ROOM_LEAVE, { code, playerId });
+    clearActiveRoom();
+    setActiveRoomCode(null);
     setRoomState(null);
     setMyHoleCards([]);
     setShowdownData(null);
-  }, [socket]);
+  }, [socket, roomState, activeRoomCode, playerId]);
+
+  const abandonActiveRoom = useCallback(
+    (code?: string) => {
+      if (!socket) return;
+      const targetCode = code || activeRoomCode || roomState?.code;
+      socket.emit(SOCKET_EVENTS.ROOM_LEAVE, { code: targetCode, playerId });
+      clearActiveRoom();
+      setActiveRoomCode(null);
+      setRoomState(null);
+      setMyHoleCards([]);
+      setShowdownData(null);
+    },
+    [socket, activeRoomCode, roomState, playerId]
+  );
 
   const toggleReady = useCallback(() => {
     if (!socket) return;
@@ -179,6 +215,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [socket]
   );
 
+  const restartGame = useCallback(() => {
+    if (!socket) return;
+    socket.emit(SOCKET_EVENTS.GAME_RESTART);
+  }, [socket]);
+
+  const returnToLobby = useCallback(() => {
+    if (!socket) return;
+    socket.emit(SOCKET_EVENTS.GAME_RETURN_TO_LOBBY);
+  }, [socket]);
+
   return (
     <SocketContext.Provider
       value={{
@@ -188,6 +234,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nick,
         setNick,
         roomState,
+        activeRoomCode,
         myHoleCards,
         showdownData,
         lastError,
@@ -195,12 +242,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         createRoom,
         joinRoom,
         leaveRoom,
+        abandonActiveRoom,
         toggleReady,
         startGame,
         sendAction,
         updateSettings,
         rebuy,
         kickPlayer,
+        restartGame,
+        returnToLobby,
       }}
     >
       {children}

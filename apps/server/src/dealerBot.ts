@@ -47,6 +47,8 @@ export class DealerBot {
       dealerBotStatus: room.dealerBotStatus,
       history: room.history.slice(-20),
       stats: Array.from(room.statsMap.values()),
+      isGameOver: room.isGameOver || false,
+      gameWinner: room.gameWinner || null,
     };
 
     this.io.to(room.code).emit(SOCKET_EVENTS.ROOM_STATE, payload);
@@ -276,31 +278,79 @@ export class DealerBot {
 
     this.broadcastRoomState(room);
 
-    // Pause 5 seconds for players to see results, then prepare next hand or auto-start
-    room.stageTimer = setTimeout(() => {
-      // Check if players have 0 chips
-      for (const p of room.players) {
-        if (p.chips === 0 && !room.settings.rebuy) {
-          p.status = 'sitting-out';
-          p.isReady = false;
-        }
+    // Check if players have 0 chips
+    for (const p of room.players) {
+      if (p.chips === 0 && !room.settings.rebuy) {
+        p.status = 'sitting-out';
+        p.isReady = false;
       }
+    }
 
-      const activeChipsPlayers = room.players.filter((p) => p.chips > 0 && p.isConnected);
-      if (activeChipsPlayers.length < 2) {
-        room.isGameActive = false;
-        room.dealerBotStatus = 'waiting';
-        this.broadcastRoomState(room);
-        return;
-      }
+    const activeChipsPlayers = room.players.filter((p) => p.chips > 0 && p.isConnected);
+    if (activeChipsPlayers.length < 2) {
+      // Game over! Not enough players with chips. Stay on table and prompt host.
+      room.isGameOver = true;
+      room.gameWinner =
+        activeChipsPlayers.length === 1
+          ? {
+              playerId: activeChipsPlayers[0].id,
+              nick: activeChipsPlayers[0].nick,
+              chips: activeChipsPlayers[0].chips,
+            }
+          : null;
+      room.dealerBotStatus = 'waiting';
+      this.broadcastRoomState(room);
+      return;
+    }
 
-      if (room.settings.autoStart || activeChipsPlayers.every((p) => p.isReady)) {
+    // Normal hand end: leave dealerBotStatus as waiting so host can click "Devam Et"
+    room.isGameOver = false;
+    room.gameWinner = null;
+    room.dealerBotStatus = 'waiting';
+    this.broadcastRoomState(room);
+
+    if (room.settings.autoStart) {
+      room.stageTimer = setTimeout(() => {
         this.startHand(room);
-      } else {
-        room.dealerBotStatus = 'waiting';
-        this.broadcastRoomState(room);
-      }
-    }, 5000);
+      }, 5000);
+    }
+  }
+
+  /**
+   * Resets all player chips and restarts game (Host only)
+   */
+  public restartGame(room: Room): void {
+    this.clearTimers(room);
+    room.isGameOver = false;
+    room.gameWinner = null;
+    room.isGameActive = true;
+    for (const p of room.players) {
+      p.chips = room.settings.startingChips;
+      p.status = 'active';
+      p.isReady = true;
+      p.currentRoundBet = 0;
+      p.totalHandBet = 0;
+    }
+    this.startHand(room);
+  }
+
+  /**
+   * Ends game and returns room back to waiting lobby
+   */
+  public returnToLobby(room: Room): void {
+    this.clearTimers(room);
+    room.isGameOver = false;
+    room.gameWinner = null;
+    room.isGameActive = false;
+    room.dealerBotStatus = 'ready';
+    room.engine = null;
+    for (const p of room.players) {
+      p.isReady = false;
+      p.status = 'active';
+      p.currentRoundBet = 0;
+      p.totalHandBet = 0;
+    }
+    this.broadcastRoomState(room);
   }
 
   /**

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, Edit2, History } from 'lucide-react';
+import { formatRoomCode } from '@poker-night/shared';
 import { useSocket } from '../context/SocketContext.js';
 import { t } from '../i18n/tr.js';
 import { getRecentRooms } from '../utils/storage.js';
@@ -10,7 +11,16 @@ interface HomeScreenProps {
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
-  const { nick, setNick, createRoom, joinRoom, lastError, clearError } = useSocket();
+  const {
+    nick,
+    setNick,
+    createRoom,
+    joinRoom,
+    activeRoomCode,
+    abandonActiveRoom,
+    lastError,
+    clearError,
+  } = useSocket();
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [isChangingNick, setIsChangingNick] = useState(() => !nick);
   const [nickInput, setNickInput] = useState(nick);
@@ -290,6 +300,57 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Active Room Reconnect / Abandon Modal */}
+      {activeRoomCode && !isChangingNick && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-poker-card border border-poker-gold/40 rounded-2xl w-full max-w-sm p-6 space-y-5 shadow-2xl text-center"
+          >
+            <div>
+              <h3 className="text-xl font-serif font-bold text-amber-100">
+                {t.home.activeRoomTitle}
+              </h3>
+              <p className="text-sm text-stone-300 mt-2">
+                <span className="font-mono font-bold text-poker-gold tracking-widest text-lg">
+                  {formatRoomCode(activeRoomCode)}
+                </span>{' '}
+                {t.home.inRoomNotice}
+              </p>
+            </div>
+
+            {lastError && (
+              <p className="text-rose-400 text-xs bg-rose-950/40 border border-rose-900/50 p-2.5 rounded-xl">
+                {lastError}
+              </p>
+            )}
+
+            <div className="space-y-2.5 pt-2">
+              <button
+                onClick={() => {
+                  if (!nick.trim()) {
+                    setNickNotice(t.home.noNickWarning);
+                    setIsChangingNick(true);
+                    return;
+                  }
+                  joinRoom(activeRoomCode);
+                }}
+                className="w-full py-3.5 px-4 rounded-xl bg-poker-wine hover:bg-poker-wineHover text-poker-gold border border-poker-border font-bold font-serif text-base shadow-lg transition-all active:scale-[0.98]"
+              >
+                {t.home.rejoinBtn}
+              </button>
+              <button
+                onClick={() => abandonActiveRoom(activeRoomCode)}
+                className="w-full py-2.5 px-4 rounded-xl bg-stone-900/80 hover:bg-stone-800 text-stone-400 hover:text-rose-400 border border-stone-800 font-medium text-sm transition-all"
+              >
+                {t.home.abandonBtn}
+              </button>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

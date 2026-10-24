@@ -40,3 +40,17 @@ export function saveRecentRoom(code: string): void {
   rooms.unshift({ code, joinedAt: Date.now() });
   localStorage.setItem(RECENT_ROOMS_KEY, JSON.stringify(rooms.slice(0, 5)));
 }
+
+const ACTIVE_ROOM_KEY = 'poker_night_active_room';
+
+export function getActiveRoom(): string | null {
+  return localStorage.getItem(ACTIVE_ROOM_KEY);
+}
+
+export function saveActiveRoom(code: string): void {
+  localStorage.setItem(ACTIVE_ROOM_KEY, code.replace(/\D/g, ''));
+}
+
+export function clearActiveRoom(): void {
+  localStorage.removeItem(ACTIVE_ROOM_KEY);
+}
