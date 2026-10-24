@@ -17,13 +17,6 @@ const SUIT_ICONS: Record<Suit, string> = {
   c: '♣',
 };
 
-const SUIT_COLORS: Record<Suit, string> = {
-  s: 'text-stone-900',
-  c: 'text-stone-900',
-  h: 'text-red-600',
-  d: 'text-red-600',
-};
-
 const RANK_LABELS: Record<Rank, string> = {
   14: 'A',
   13: 'K',
@@ -50,15 +43,15 @@ export const CardView: React.FC<CardViewProps> = ({
   const shouldReduceMotion = useReducedMotion();
 
   const sizeClasses = {
-    sm: 'w-10 h-14 text-xs rounded',
-    md: 'w-12 h-18 sm:w-14 sm:h-20 text-sm sm:text-base rounded-md',
-    lg: 'w-14 h-20 sm:w-16 sm:h-24 text-base sm:text-lg rounded-lg',
+    sm: 'w-8 h-12 sm:w-10 sm:h-14 text-xs rounded-md',
+    md: 'w-11 h-16 sm:w-13 sm:h-18 md:w-14 md:h-20 text-sm sm:text-base rounded-lg',
+    lg: 'w-13 h-18 sm:w-16 sm:h-22 md:w-16 md:h-24 text-base sm:text-lg rounded-xl',
   }[size];
 
   if (empty) {
     return (
       <div
-        className={`${sizeClasses} border-2 border-dashed border-poker-border/60 bg-poker-dark/40 flex items-center justify-center ${className}`}
+        className={`${sizeClasses} border border-[#6B323F]/50 bg-[#250F16]/30 flex items-center justify-center shadow-inner ${className}`}
       />
     );
   }
@@ -66,13 +59,13 @@ export const CardView: React.FC<CardViewProps> = ({
   if (hidden || !card) {
     return (
       <motion.div
-        initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.2 }}
-        className={`${sizeClasses} bg-gradient-to-br from-poker-wine to-poker-dark border border-poker-gold/40 shadow-md flex items-center justify-center p-1 ${className}`}
+        initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.9, y: 6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className={`${sizeClasses} bg-gradient-to-br from-[#4A1D27] to-[#1E0D12] border border-[#8C4B59]/60 shadow-lg flex items-center justify-center p-1 ${className}`}
       >
-        <div className="w-full h-full border border-poker-gold/20 rounded flex items-center justify-center bg-poker-wine/50">
-          <span className="text-poker-gold/60 text-lg sm:text-xl">♠</span>
+        <div className="w-full h-full border border-[#D5A04D]/30 rounded flex items-center justify-center bg-[#35151D]/60">
+          <span className="text-[#D5A04D]/60 text-base sm:text-lg select-none">♠</span>
         </div>
       </motion.div>
     );
@@ -81,25 +74,33 @@ export const CardView: React.FC<CardViewProps> = ({
   const isRed = card.suit === 'h' || card.suit === 'd';
   const rankLabel = RANK_LABELS[card.rank];
   const suitIcon = SUIT_ICONS[card.suit];
-  const colorClass = isRed ? 'text-red-600' : 'text-stone-900';
+  const colorClass = isRed ? 'text-[#8E2828]' : 'text-[#1F1D1D]';
 
   return (
     <motion.div
-      initial={shouldReduceMotion ? false : { opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className={`${sizeClasses} bg-[#FDFBF7] border border-stone-300 shadow-md flex flex-col justify-between p-1.5 font-bold ${colorClass} select-none ${className}`}
+      initial={
+        shouldReduceMotion
+          ? false
+          : { opacity: 0, scale: 0.8, y: -12, rotateY: 90 }
+      }
+      animate={{ opacity: 1, scale: 1, y: 0, rotateY: 0 }}
+      transition={{ duration: 0.32, ease: [0.2, 0.9, 0.3, 1] }}
+      className={`${sizeClasses} bg-[#F8F5EE] border border-[#D6CEC2] shadow-xl flex flex-col justify-between p-1 sm:p-1.5 font-bold ${colorClass} select-none ${className}`}
     >
       <div className="flex flex-col items-center leading-none self-start">
-        <span className="font-serif tracking-tight">{rankLabel}</span>
-        <span className="text-[10px] sm:text-xs">{suitIcon}</span>
+        <span className="font-serif tracking-tight text-xs sm:text-sm font-black">
+          {rankLabel}
+        </span>
+        <span className="text-[9px] sm:text-[11px] leading-tight">{suitIcon}</span>
       </div>
-      <div className="self-center text-xl sm:text-2xl leading-none my-auto">
-        {suitIcon}
+      <div className="self-center text-lg sm:text-2xl leading-none my-auto select-none">
+        {rankLabel}
       </div>
       <div className="flex flex-col items-center leading-none self-end rotate-180">
-        <span className="font-serif tracking-tight">{rankLabel}</span>
-        <span className="text-[10px] sm:text-xs">{suitIcon}</span>
+        <span className="font-serif tracking-tight text-xs sm:text-sm font-black">
+          {rankLabel}
+        </span>
+        <span className="text-[9px] sm:text-[11px] leading-tight">{suitIcon}</span>
       </div>
     </motion.div>
   );
