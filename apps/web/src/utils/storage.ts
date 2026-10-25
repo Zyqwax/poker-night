@@ -44,11 +44,37 @@ export function saveRecentRoom(code: string): void {
 const ACTIVE_ROOM_KEY = 'poker_night_active_room';
 
 export function getActiveRoom(): string | null {
-  return localStorage.getItem(ACTIVE_ROOM_KEY);
+  try {
+    const raw = localStorage.getItem(ACTIVE_ROOM_KEY);
+    if (!raw) return null;
+
+    // Check JSON format with savedAt timestamp
+    if (raw.startsWith('{')) {
+      const data = JSON.parse(raw);
+      // Expire after 30 minutes (rooms do not stay active overnight)
+      if (Date.now() - data.savedAt > 30 * 60 * 1000) {
+        clearActiveRoom();
+        return null;
+      }
+      return data.code;
+    }
+
+    // Wipe legacy plain string room keys from previous sessions
+    clearActiveRoom();
+    return null;
+  } catch {
+    clearActiveRoom();
+    return null;
+  }
 }
 
 export function saveActiveRoom(code: string): void {
-  localStorage.setItem(ACTIVE_ROOM_KEY, code.replace(/\D/g, ''));
+  const clean = code.replace(/\D/g, '');
+  if (!clean) return;
+  localStorage.setItem(
+    ACTIVE_ROOM_KEY,
+    JSON.stringify({ code: clean, savedAt: Date.now() })
+  );
 }
 
 export function clearActiveRoom(): void {

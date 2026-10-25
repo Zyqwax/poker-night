@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { WifiOff, Volume2, VolumeX } from 'lucide-react';
+import { WifiOff, Volume2, VolumeX, LogOut } from 'lucide-react';
 import { Card, PlayerPublicState, formatRoomCode } from '@poker-night/shared';
 import { detectCurrentBestHand } from '@poker-night/engine';
 import { useSocket } from '../context/SocketContext.js';
@@ -18,14 +18,14 @@ import { soundManager } from '../utils/sound.js';
  */
 function getSeatPosition(idx: number, total: number): { left: string; top: string } {
   if (total === 1) {
-    return { left: '50%', top: '13%' };
+    return { left: '50%', top: '16%' };
   }
   if (total === 2) {
     const angles = [0.75 * Math.PI, 0.25 * Math.PI];
     const a = angles[idx];
     return {
       left: `${50 - 39 * Math.cos(a)}%`,
-      top: `${50 - 37 * Math.sin(a)}%`,
+      top: `${50 - 34 * Math.sin(a)}%`,
     };
   }
   if (total === 3) {
@@ -33,7 +33,7 @@ function getSeatPosition(idx: number, total: number): { left: string; top: strin
     const a = angles[idx];
     return {
       left: `${50 - 41 * Math.cos(a)}%`,
-      top: `${50 - 37 * Math.sin(a)}%`,
+      top: `${50 - 34 * Math.sin(a)}%`,
     };
   }
   // 4 to 9 opponents: evenly spread across upper perimeter arc
@@ -42,7 +42,7 @@ function getSeatPosition(idx: number, total: number): { left: string; top: strin
   const a = start - (idx / (total - 1)) * (start - end);
   return {
     left: `${50 + 41 * Math.cos(a)}%`,
-    top: `${50 - 37 * Math.sin(a)}%`,
+    top: `${50 - 34 * Math.sin(a)}%`,
   };
 }
 
@@ -66,6 +66,7 @@ export const PokerTable: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [raiseAmount, setRaiseAmount] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [soundEnabled, setSoundEnabled] = useState(() => soundManager.isEnabled());
@@ -248,7 +249,7 @@ export const PokerTable: React.FC = () => {
   const isGameOver = Boolean(roomState.isGameOver);
 
   return (
-    <div className="h-screen h-[100dvh] max-h-[100dvh] bg-[#140E10] flex flex-col justify-between p-2 sm:p-4 select-none text-stone-200 overflow-hidden relative">
+    <div className="h-screen h-[100dvh] max-h-[100dvh] bg-[#140E10] flex flex-col justify-between p-1.5 sm:p-2 lg:p-4 select-none text-stone-200 overflow-hidden relative">
       {/* Forced Landscape Overlay for Mobile/Tablet in Portrait */}
       {isPortrait && (
         <div className="fixed inset-0 z-50 bg-[#120C0E] flex flex-col items-center justify-center p-6 text-center select-none backdrop-blur-md">
@@ -285,11 +286,11 @@ export const PokerTable: React.FC = () => {
       )}
 
       {/* Top Bar: Room Code on Left, Navigation Links on Right */}
-      <div className="w-full max-w-[1400px] mx-auto flex items-center justify-between py-1.5 sm:py-2.5 px-2 sm:px-4 z-10 shrink-0">
-        <div className="font-serif font-bold text-xl sm:text-2xl lg:text-3xl text-[#EDE6DE] tracking-tight">
+      <div className="w-full max-w-[1400px] mx-auto flex items-center justify-between py-1 lg:py-2 px-1 sm:px-3 z-10 shrink-0">
+        <div className="font-serif font-bold text-base sm:text-xl lg:text-3xl text-[#EDE6DE] tracking-tight">
           {t.table.room} {formattedRoomCode}
         </div>
-        <div className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm font-medium text-stone-300">
+        <div className="flex items-center gap-2 sm:gap-4 text-[11px] sm:text-xs lg:text-sm font-medium text-stone-300">
           <button
             onClick={() => setIsHistoryOpen(true)}
             className="hover:text-[#D5A04D] transition-colors"
@@ -328,17 +329,25 @@ export const PokerTable: React.FC = () => {
               <VolumeX size={16} className="text-stone-500" />
             )}
           </button>
+          <button
+            onClick={() => setIsLeaveModalOpen(true)}
+            title={t.table.leaveRoom}
+            className="hover:text-rose-400 text-rose-300/80 transition-colors flex items-center gap-1 border-l border-stone-700/60 pl-2 ml-0.5"
+          >
+            <LogOut size={14} />
+            <span className="hidden sm:inline">{t.table.leaveRoom}</span>
+          </button>
         </div>
       </div>
 
       {/* Main Body: Oval Table on Left/Center, Action Controls on Right */}
-      <div className="flex-1 min-h-0 w-full max-w-[1400px] mx-auto flex flex-col lg:flex-row items-center justify-center gap-3 lg:gap-8 px-1 sm:px-4 pb-1 sm:pb-3">
+      <div className="flex-1 min-h-0 w-full max-w-[1400px] mx-auto flex flex-row items-center justify-between gap-1.5 sm:gap-3 lg:gap-6 px-1 sm:px-2 pb-1 overflow-hidden">
         {/* Table Container */}
-        <div className="flex-1 w-full h-full min-h-[300px] max-h-[58vh] lg:max-h-[82vh] flex items-center justify-center relative">
+        <div className="flex-1 min-w-0 h-full max-h-full flex items-center justify-center relative p-0.5 sm:p-1 overflow-hidden">
           {/* Oval Table Felt */}
-          <div className="relative w-full h-full max-w-[850px] max-h-[520px] aspect-[16/10] sm:aspect-[16/9] rounded-[110px] sm:rounded-[180px] lg:rounded-[240px] bg-gradient-to-b from-[#38161F] to-[#260D15] border-[6px] sm:border-[10px] border-[#4A1D27] shadow-[0_0_50px_rgba(0,0,0,0.85)_inset,0_15px_35px_rgba(0,0,0,0.7)] flex flex-col items-center justify-center">
+          <div className="relative w-full h-full max-w-[760px] max-h-full aspect-[16/10] sm:aspect-[16/9] rounded-[60px] sm:rounded-[120px] lg:rounded-[200px] bg-gradient-to-b from-[#38161F] to-[#260D15] border-[4px] sm:border-[7px] lg:border-[10px] border-[#4A1D27] shadow-[0_0_40px_rgba(0,0,0,0.85)_inset,0_10px_25px_rgba(0,0,0,0.7)] flex flex-col items-center justify-center">
             {/* Inner Table Rim */}
-            <div className="absolute inset-[-2px] rounded-[112px] sm:rounded-[182px] lg:rounded-[242px] border border-[#D5A04D]/25 pointer-events-none" />
+            <div className="absolute inset-[-2px] rounded-[62px] sm:rounded-[122px] lg:rounded-[202px] border border-[#D5A04D]/25 pointer-events-none" />
 
             {/* Opponent Seats along Perimeter */}
             {otherPlayers.map((player, idx) => {
@@ -427,17 +436,17 @@ export const PokerTable: React.FC = () => {
             {/* Table Center: Pot, Community Cards, User Hole Cards, User Badge */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               {/* Pot Display */}
-              <div className="absolute top-[22%] sm:top-[25%] flex flex-col items-center text-center pointer-events-auto">
-                <span className="text-[10px] sm:text-xs text-[#A69A93] font-medium tracking-widest uppercase">
+              <div className="absolute top-[18%] sm:top-[21%] flex flex-col items-center text-center pointer-events-auto">
+                <span className="text-[9px] sm:text-[10px] lg:text-xs text-[#A69A93] font-medium tracking-widest uppercase">
                   {t.table.pot}
                 </span>
-                <span className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-[#F5EFE6] leading-none mt-0.5 drop-shadow-md">
+                <span className="text-xl sm:text-3xl lg:text-4xl font-serif font-bold text-[#F5EFE6] leading-none mt-0.5 drop-shadow-md">
                   {totalPot.toLocaleString()}
                 </span>
 
                 {/* Side Pots if any */}
                 {game.sidePots.length > 1 && (
-                  <div className="text-[10px] text-amber-300/80 mt-1">
+                  <div className="text-[9px] sm:text-[10px] text-amber-300/80 mt-0.5">
                     Side Pot: {game.sidePots.slice(1).map((sp) => sp.amount).join(' / ')}
                   </div>
                 )}
@@ -447,7 +456,7 @@ export const PokerTable: React.FC = () => {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9, y: 4 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="mt-1 px-3 py-0.5 bg-amber-500/20 border border-amber-400/60 rounded-full text-xs font-bold text-amber-200 shadow-lg"
+                    className="mt-1 px-2.5 py-0.5 bg-amber-500/20 border border-amber-400/60 rounded-full text-[10px] sm:text-xs font-bold text-amber-200 shadow-lg"
                   >
                     🏆 {game.winners.map((w) => `${w.nick} (${w.amount} chip)`).join(', ')}
                   </motion.div>
@@ -455,7 +464,7 @@ export const PokerTable: React.FC = () => {
               </div>
 
               {/* Community Cards: 5 Card Slots */}
-              <div className="absolute top-[45%] sm:top-[47%] -translate-y-1/2 flex items-center gap-1 sm:gap-2 pointer-events-auto">
+              <div className="absolute top-[44%] sm:top-[46%] -translate-y-1/2 flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
                 {[0, 1, 2, 3, 4].map((idx) => {
                   const card = game.communityCards[idx];
                   return (
@@ -470,7 +479,7 @@ export const PokerTable: React.FC = () => {
               </div>
 
               {/* Current User Hole Cards */}
-              <div className="absolute top-[67%] sm:top-[69%] -translate-y-1/2 flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+              <div className="absolute top-[67%] sm:top-[69%] -translate-y-1/2 flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
                 {myHoleCards.length === 2 ? (
                   myHoleCards.map((card, i) => (
                     <CardView
@@ -490,28 +499,28 @@ export const PokerTable: React.FC = () => {
               {/* Current User Badge - Pinned to bottom border */}
               <div className="absolute top-[90%] -translate-y-1/2 z-20 flex flex-col items-center pointer-events-auto">
                 <div
-                  className={`px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl border-2 bg-[#170E12]/95 shadow-2xl flex items-center gap-3 transition-all ${
+                  className={`px-3 py-1 sm:px-5 sm:py-1.5 rounded-lg sm:rounded-xl border-2 bg-[#170E12]/95 shadow-xl flex items-center gap-2 sm:gap-3 transition-all ${
                     isMyTurn
                       ? 'border-[#D5A04D] ring-2 ring-[#D5A04D]/40 shadow-[#D5A04D]/25'
                       : 'border-[#4A2430]'
                   }`}
                 >
-                  <span className="font-bold text-stone-100 text-sm sm:text-base">
+                  <span className="font-bold text-stone-100 text-xs sm:text-sm">
                     {currentPlayer?.nick}
                   </span>
-                  <span className="font-serif font-bold text-[#D5A04D] text-sm sm:text-lg">
+                  <span className="font-serif font-bold text-[#D5A04D] text-xs sm:text-base">
                     {currentPlayer?.chips.toLocaleString()}
                   </span>
                 </div>
 
                 {/* Turn Status Indicator */}
-                <div className="mt-1 text-center">
+                <div className="mt-0.5 text-center">
                   {isMyTurn ? (
-                    <span className="text-[#D5A04D] font-serif font-bold text-xs sm:text-sm drop-shadow">
+                    <span className="text-[#D5A04D] font-serif font-bold text-[10px] sm:text-xs drop-shadow">
                       {t.table.yourTurn} · {timeLeft} sn
                     </span>
                   ) : game.currentTurnSeat !== null ? (
-                    <span className="text-stone-400 text-xs">
+                    <span className="text-stone-400 text-[10px] sm:text-xs">
                       {t.table.waitingFor}{' '}
                       <span className="text-stone-200 font-medium">
                         {roomState.players.find((p) => p.seatIndex === game.currentTurnSeat)?.nick}
@@ -523,7 +532,7 @@ export const PokerTable: React.FC = () => {
 
                 {/* Auto-detected Best Hand string */}
                 {currentHandInfo.textTr && (
-                  <span className="text-[11px] text-amber-200/90 font-medium drop-shadow mt-0.5">
+                  <span className="text-[10px] sm:text-[11px] text-amber-200/90 font-medium drop-shadow mt-0.5">
                     {currentHandInfo.textTr}
                   </span>
                 )}
@@ -534,17 +543,17 @@ export const PokerTable: React.FC = () => {
 
         {/* Action Controls Panel on Right (Docked side-by-side without layout shifts) */}
         <div
-          className={`w-full lg:w-[320px] max-w-sm shrink-0 flex flex-col justify-center space-y-2.5 sm:space-y-3 transition-opacity ${
+          className={`w-[190px] sm:w-[230px] md:w-[270px] lg:w-[310px] shrink-0 h-full max-h-full flex flex-col justify-center space-y-1 sm:space-y-1.5 lg:space-y-2.5 transition-opacity overflow-y-auto no-scrollbar ${
             isMyTurn ? 'opacity-100' : 'opacity-40 pointer-events-none'
           }`}
         >
           {/* Raise Header & Slider */}
-          <div className="bg-[#1C1216]/85 border border-[#3D1E27] rounded-2xl p-3 sm:p-4 space-y-2 shadow-xl">
+          <div className="bg-[#1C1216]/85 border border-[#3D1E27] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 lg:p-3.5 space-y-1 sm:space-y-1.5 shadow-xl">
             <div className="flex items-center justify-between">
-              <span className="text-stone-300 font-serif text-sm font-medium">
+              <span className="text-stone-300 font-serif text-xs sm:text-sm font-medium">
                 {t.table.raise}
               </span>
-              <span className="text-2xl sm:text-3xl font-serif font-black text-white font-mono">
+              <span className="text-base sm:text-xl lg:text-2xl font-serif font-black text-white font-mono">
                 {raiseAmount}
               </span>
             </div>
@@ -558,16 +567,16 @@ export const PokerTable: React.FC = () => {
               value={raiseAmount}
               onChange={(e) => setRaiseAmount(Number(e.target.value))}
               disabled={!isMyTurn || !canRaise}
-              className="w-full accent-[#D5A04D] cursor-pointer h-2 bg-[#2D161E] rounded-lg"
+              className="w-full accent-[#D5A04D] cursor-pointer h-1.5 sm:h-2 bg-[#2D161E] rounded-lg"
             />
 
             {/* Quick Preset Buttons: Min | 1/2 pot | Pot */}
-            <div className="grid grid-cols-3 gap-2 pt-1 text-xs font-serif font-bold">
+            <div className="grid grid-cols-3 gap-1 sm:gap-1.5 pt-0.5 text-[10px] sm:text-xs font-serif font-bold">
               <button
                 type="button"
                 disabled={!isMyTurn || !canRaise}
                 onClick={() => setRaiseAmount(minRaise)}
-                className="py-1.5 rounded-lg bg-[#27151D] hover:bg-[#381E29] border border-[#4A2533] text-stone-200 transition-colors shadow disabled:opacity-40"
+                className="py-1 rounded-lg bg-[#27151D] hover:bg-[#381E29] border border-[#4A2533] text-stone-200 transition-colors shadow disabled:opacity-40"
               >
                 {t.table.min}
               </button>
@@ -582,7 +591,7 @@ export const PokerTable: React.FC = () => {
                     )
                   )
                 }
-                className="py-1.5 rounded-lg bg-[#27151D] hover:bg-[#381E29] border border-[#4A2533] text-stone-200 transition-colors shadow disabled:opacity-40"
+                className="py-1 rounded-lg bg-[#27151D] hover:bg-[#381E29] border border-[#4A2533] text-stone-200 transition-colors shadow disabled:opacity-40"
               >
                 {t.table.halfPot}
               </button>
@@ -594,7 +603,7 @@ export const PokerTable: React.FC = () => {
                     Math.min(maxRaise, Math.max(minRaise, totalPot + game.currentHighestBet))
                   )
                 }
-                className="py-1.5 rounded-lg bg-[#27151D] hover:bg-[#381E29] border border-[#4A2533] text-stone-200 transition-colors shadow disabled:opacity-40"
+                className="py-1 rounded-lg bg-[#27151D] hover:bg-[#381E29] border border-[#4A2533] text-stone-200 transition-colors shadow disabled:opacity-40"
               >
                 {t.table.fullPot}
               </button>
@@ -602,22 +611,22 @@ export const PokerTable: React.FC = () => {
           </div>
 
           {/* Action Buttons Grid with 500ms Hold to Act */}
-          <div className="flex flex-col gap-2 sm:gap-2.5">
+          <div className="flex flex-col gap-1 sm:gap-1.5">
             {/* Hold Hint */}
-            <div className="text-[10px] sm:text-[11px] text-stone-400 text-center flex items-center justify-center gap-1.5 opacity-80">
+            <div className="text-[9px] sm:text-[10px] text-stone-400 text-center flex items-center justify-center gap-1 opacity-80">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D5A04D] animate-pulse" />
               <span>{t.table.holdToActHint}</span>
             </div>
 
             {/* Row 1: Fold and Check / Call */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+            <div className="grid grid-cols-2 gap-1 sm:gap-1.5">
               {/* Fold */}
               <HoldButton
                 disabled={!isMyTurn}
                 onTrigger={() => sendAction('fold')}
                 soundType="fold"
                 progressColor="bg-rose-500/30"
-                className="py-3 rounded-xl bg-[#3B1824] hover:bg-[#4E2130] border border-[#582535] text-white font-serif font-bold text-base sm:text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+                className="py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#3B1824] hover:bg-[#4E2130] border border-[#582535] text-white font-serif font-bold text-xs sm:text-base shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {t.table.fold}
               </HoldButton>
@@ -629,7 +638,7 @@ export const PokerTable: React.FC = () => {
                   onTrigger={() => sendAction('call')}
                   soundType="call"
                   progressColor="bg-emerald-400/30"
-                  className="py-3 rounded-xl bg-[#1B463F] hover:bg-[#255D53] border border-[#2B6A5F] text-emerald-100 font-serif font-bold text-base sm:text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#1B463F] hover:bg-[#255D53] border border-[#2B6A5F] text-emerald-100 font-serif font-bold text-xs sm:text-base shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {t.table.call} {actualCallToPay}
                 </HoldButton>
@@ -639,7 +648,7 @@ export const PokerTable: React.FC = () => {
                   onTrigger={() => sendAction('check')}
                   soundType="check"
                   progressColor="bg-stone-400/30"
-                  className="py-3 rounded-xl bg-[#231A1E] hover:bg-[#32252B] border border-stone-800 text-stone-200 font-serif font-bold text-base sm:text-lg shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#231A1E] hover:bg-[#32252B] border border-stone-800 text-stone-200 font-serif font-bold text-xs sm:text-base shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {t.table.check}
                 </HoldButton>
@@ -652,7 +661,7 @@ export const PokerTable: React.FC = () => {
               onTrigger={() => sendAction('raise', raiseAmount)}
               soundType="raise"
               progressColor="bg-teal-400/30"
-              className="w-full py-3 sm:py-3.5 rounded-xl bg-[#1E4D46] hover:bg-[#276259] border border-[#2F7166] text-white font-serif font-bold text-lg sm:text-xl shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#1E4D46] hover:bg-[#276259] border border-[#2F7166] text-white font-serif font-bold text-xs sm:text-base shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t.table.raise} {raiseAmount}
             </HoldButton>
@@ -663,7 +672,7 @@ export const PokerTable: React.FC = () => {
               onTrigger={() => sendAction('all-in')}
               soundType="all-in"
               progressColor="bg-amber-300/40"
-              className="w-full py-3 sm:py-3.5 rounded-xl bg-[#C18C39] hover:bg-[#D59C42] border border-[#D9A54E] text-[#1D1307] font-serif font-black text-lg sm:text-xl shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#C18C39] hover:bg-[#D59C42] border border-[#D9A54E] text-[#1D1307] font-serif font-black text-xs sm:text-base shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t.table.allIn}
             </HoldButton>
@@ -671,11 +680,11 @@ export const PokerTable: React.FC = () => {
 
           {/* Rebuy option if chips are 0 */}
           {currentPlayer?.chips === 0 && roomState.settings.rebuy && (
-            <div className="bg-amber-950/80 border border-amber-700/80 p-2.5 rounded-xl flex items-center justify-between text-xs pointer-events-auto">
+            <div className="bg-amber-950/80 border border-amber-700/80 p-1.5 sm:p-2 rounded-xl flex items-center justify-between text-[10px] sm:text-xs pointer-events-auto">
               <span className="text-amber-200 font-medium">{t.table.rebuyPrompt}</span>
               <button
                 onClick={rebuy}
-                className="px-3 py-1 bg-[#D5A04D] text-[#1B1108] font-bold text-xs rounded-lg hover:bg-amber-400 shadow"
+                className="px-2.5 py-1 bg-[#D5A04D] text-[#1B1108] font-bold text-[10px] sm:text-xs rounded-lg hover:bg-amber-400 shadow"
               >
                 {t.table.rebuyBtn}
               </button>
@@ -846,6 +855,75 @@ export const PokerTable: React.FC = () => {
                   )}
                 </div>
               )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Leave Room Confirmation Modal */}
+      {isLeaveModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm bg-[#1C1116] border border-stone-800 rounded-2xl p-5 text-center shadow-2xl space-y-4"
+          >
+            <div className="text-3xl">🚪</div>
+            <h3 className="text-lg font-serif font-bold text-stone-100">
+              {t.table.leaveConfirmTitle}
+            </h3>
+            <p className="text-xs text-stone-400 leading-relaxed">
+              {t.table.leaveConfirmDesc}
+            </p>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                onClick={() => setIsLeaveModalOpen(false)}
+                className="py-2.5 rounded-xl bg-[#2B1B22] hover:bg-[#3D2530] text-stone-300 font-serif font-semibold text-xs transition-colors"
+              >
+                {t.table.cancelBtn}
+              </button>
+              <button
+                onClick={() => {
+                  setIsLeaveModalOpen(false);
+                  leaveRoom();
+                }}
+                className="py-2.5 rounded-xl bg-rose-900/90 hover:bg-rose-800 text-white font-serif font-bold text-xs transition-colors shadow-lg"
+              >
+                {t.table.leaveConfirmBtn}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Single Player Remaining Warning Modal */}
+      {(otherPlayers.length === 0 || roomState.players.length <= 1) && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm bg-[#1C1116] border-2 border-amber-500/80 rounded-2xl p-6 text-center shadow-2xl space-y-4"
+          >
+            <div className="text-4xl animate-bounce">⚠️</div>
+            <h3 className="text-xl font-serif font-bold text-amber-200">
+              {t.table.singlePlayerTitle}
+            </h3>
+            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+              {t.table.singlePlayerDesc}
+            </p>
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                onClick={returnToLobby}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#D5A04D] to-[#BA8538] text-[#160E11] font-serif font-black text-sm sm:text-base shadow-xl hover:brightness-110 active:scale-95 transition-all"
+              >
+                {t.table.returnToLobbyBtn}
+              </button>
+              <button
+                onClick={leaveRoom}
+                className="w-full py-2 rounded-xl bg-[#27151D] border border-stone-800 text-stone-400 hover:text-white text-xs transition-colors"
+              >
+                {t.table.leaveRoom}
+              </button>
             </div>
           </motion.div>
         </div>

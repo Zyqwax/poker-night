@@ -72,6 +72,25 @@ app.get('/api/history/:roomCode', (req, res) => {
   res.json(hands);
 });
 
+app.get('/api/rooms/:roomCode/status', (req, res) => {
+  const room = roomManager.getRoom(req.params.roomCode);
+  if (!room) {
+    return res.status(404).json({ exists: false, active: false });
+  }
+  const connectedCount = room.players.filter((p) => p.isConnected).length;
+  if (room.players.length === 0 || connectedCount === 0) {
+    return res.json({ exists: false, active: false, connectedCount: 0 });
+  }
+  res.json({
+    exists: true,
+    active: true,
+    code: room.code,
+    isGameActive: room.isGameActive,
+    totalPlayers: room.players.length,
+    connectedCount,
+  });
+});
+
 if (webDistPath) {
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io') || req.path.startsWith('/health')) {

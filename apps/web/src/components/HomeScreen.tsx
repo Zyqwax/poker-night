@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, Edit2, History } from 'lucide-react';
 import { formatRoomCode } from '@poker-night/shared';
@@ -27,6 +27,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
   const [showRecent, setShowRecent] = useState(false);
   const [nickNotice, setNickNotice] = useState<string | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Verify active room with server on load; if room was destroyed or empty, clear prompt immediately
+  useEffect(() => {
+    if (!activeRoomCode) return;
+    let isCancelled = false;
+
+    fetch(`/api/rooms/${activeRoomCode}/status`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Room not found');
+        return res.json();
+      })
+      .then((data) => {
+        if (isCancelled) return;
+        if (!data.exists || !data.active) {
+          abandonActiveRoom(activeRoomCode);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          abandonActiveRoom(activeRoomCode);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeRoomCode, abandonActiveRoom]);
 
   const handleCreateRoom = () => {
     if (!nick.trim()) {
@@ -107,13 +134,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
   const isCodeComplete = digits.join('').length === 6;
 
   return (
-    <div className="min-h-screen bg-poker-dark flex flex-col justify-between px-6 py-10 max-w-md mx-auto relative select-none">
+    <div className="h-screen h-[100dvh] max-h-[100dvh] bg-poker-dark flex flex-col justify-between px-5 sm:px-6 py-4 sm:py-8 max-w-md mx-auto relative select-none overflow-hidden">
       {/* Top Header */}
-      <div className="pt-6 text-center space-y-3">
+      <div className="pt-1 sm:pt-4 text-center space-y-1 sm:space-y-2 shrink-0">
         <motion.h1
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-4xl sm:text-5xl font-serif font-bold tracking-tight text-amber-100"
+          className="text-3xl sm:text-5xl font-serif font-bold tracking-tight text-amber-100"
         >
           {t.app.title}
         </motion.h1>
@@ -121,37 +148,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="text-stone-400 text-sm whitespace-pre-line leading-relaxed"
+          className="text-stone-400 text-xs sm:text-sm whitespace-pre-line leading-snug"
         >
           {t.app.subtitle}
         </motion.p>
       </div>
 
-      {/* Main Actions matching PDF Page 1 */}
-      <div className="my-auto py-8 space-y-10">
+      {/* Main Actions */}
+      <div className="my-auto py-2 sm:py-4 space-y-4 sm:space-y-6 flex-1 min-h-0 flex flex-col justify-center">
         {/* Create Room Button */}
         <div>
           <button
             onClick={() => handleCreateRoom()}
-            className="w-full py-4 px-6 rounded-2xl bg-poker-wine hover:bg-poker-wineHover border border-poker-border text-poker-gold font-serif font-bold text-lg flex items-center justify-between shadow-xl transition-all active:scale-[0.99]"
+            className="w-full py-3 sm:py-4 px-5 sm:px-6 rounded-xl sm:rounded-2xl bg-poker-wine hover:bg-poker-wineHover border border-poker-border text-poker-gold font-serif font-bold text-base sm:text-lg flex items-center justify-between shadow-xl transition-all active:scale-[0.99]"
           >
             <span>{t.home.createRoom}</span>
           </button>
         </div>
 
         {/* Join Room Section */}
-        <div className="space-y-4">
+        <div className="space-y-2.5 sm:space-y-3.5">
           <div>
-            <h2 className="text-2xl font-serif font-bold text-stone-100">
+            <h2 className="text-xl sm:text-2xl font-serif font-bold text-stone-100">
               {t.home.joinRoom}
             </h2>
-            <p className="text-stone-400 text-xs mt-1">
+            <p className="text-stone-400 text-xs mt-0.5">
               {t.home.enterCodeHint}
             </p>
           </div>
 
           {/* 6 Digits Input */}
-          <div className="flex justify-between gap-2.5 pt-2" onPaste={handlePaste}>
+          <div className="flex justify-between gap-1.5 sm:gap-2.5 pt-1" onPaste={handlePaste}>
             {digits.map((digit, idx) => (
               <input
                 key={idx}
@@ -162,7 +189,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
                 value={digit}
                 onChange={(e) => handleDigitChange(idx, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(idx, e)}
-                className={`w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-serif font-bold rounded-xl border bg-poker-dark text-amber-100 focus:outline-none transition-all ${
+                className={`w-10 h-13 sm:w-12 sm:h-16 text-center text-xl sm:text-2xl font-serif font-bold rounded-lg sm:rounded-xl border bg-poker-dark text-amber-100 focus:outline-none transition-all ${
                   digit
                     ? 'border-poker-gold/80 bg-poker-card shadow-sm'
                     : 'border-stone-800 focus:border-poker-gold/60'
@@ -172,7 +199,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
           </div>
 
           {lastError && (
-            <p className="text-rose-400 text-xs bg-rose-950/40 border border-rose-900/50 p-2.5 rounded-xl">
+            <p className="text-rose-400 text-xs bg-rose-950/40 border border-rose-900/50 p-2 rounded-lg">
               {lastError}
             </p>
           )}
@@ -181,14 +208,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
           <button
             disabled={!isCodeComplete}
             onClick={() => handleJoin()}
-            className="w-full py-3.5 rounded-2xl border border-poker-gold/80 text-poker-gold hover:bg-poker-gold/10 font-bold transition-all disabled:opacity-40 disabled:border-stone-700 disabled:text-stone-500 disabled:cursor-not-allowed shadow-md"
+            className="w-full py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl border border-poker-gold/80 text-poker-gold hover:bg-poker-gold/10 font-bold transition-all disabled:opacity-40 disabled:border-stone-700 disabled:text-stone-500 disabled:cursor-not-allowed shadow-md text-sm sm:text-base"
           >
             {t.home.joinBtn}
           </button>
         </div>
 
         {/* Help & Recent Rooms Links */}
-        <div className="flex items-center justify-center gap-6 pt-2 text-xs text-stone-400">
+        <div className="flex items-center justify-center gap-6 pt-1 text-xs text-stone-400">
           <button
             onClick={onOpenHelp}
             className="flex items-center gap-1.5 hover:text-poker-gold transition-colors"
@@ -209,14 +236,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
 
         {/* Recent Rooms Dropdown */}
         {showRecent && recentRooms.length > 0 && (
-          <div className="bg-poker-card border border-poker-border rounded-xl p-3 space-y-2 text-xs">
+          <div className="bg-poker-card border border-poker-border rounded-xl p-2.5 space-y-1.5 text-xs max-h-24 overflow-y-auto">
             <span className="font-semibold text-stone-400 block">{t.home.recentRooms}:</span>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {recentRooms.map((r) => (
                 <button
                   key={r.code}
                   onClick={() => joinRoom(r.code)}
-                  className="px-3 py-1.5 bg-poker-dark border border-poker-border hover:border-poker-gold text-amber-200 rounded-lg font-mono transition-colors"
+                  className="px-2.5 py-1 bg-poker-dark border border-poker-border hover:border-poker-gold text-amber-200 rounded-lg font-mono transition-colors text-xs"
                 >
                   {r.code.slice(0, 3)} {r.code.slice(3)}
                 </button>
@@ -227,7 +254,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenHelp }) => {
       </div>
 
       {/* Bottom Bar: Nick on Left, Nick Değiştir on Right */}
-      <div className="pt-6 border-t border-poker-border/40 flex items-center justify-between text-sm">
+      <div className="pt-2 sm:pt-4 border-t border-poker-border/40 flex items-center justify-between text-xs sm:text-sm shrink-0">
         <div className="text-stone-400">
           <span>{t.home.nickLabel} </span>
           {nick ? (

@@ -49,6 +49,7 @@ export class DealerBot {
       stats: Array.from(room.statsMap.values()),
       isGameOver: room.isGameOver || false,
       gameWinner: room.gameWinner || null,
+      notice: room.notice || null,
     };
 
     this.io.to(room.code).emit(SOCKET_EVENTS.ROOM_STATE, payload);
@@ -71,6 +72,7 @@ export class DealerBot {
    */
   public startHand(room: Room): void {
     this.clearTimers(room);
+    room.notice = null;
 
     const eligible = room.players.filter((p) => p.chips > 0 && p.isConnected);
     if (eligible.length < 2) {
@@ -286,6 +288,12 @@ export class DealerBot {
       }
     }
 
+    // If only 1 player remains in the room, close game and return to lobby immediately
+    if (room.players.length <= 1) {
+      this.returnToLobby(room, 'Odada tek kişi kaldığı için oyun kapatıldı ve lobiye dönüldü.');
+      return;
+    }
+
     const activeChipsPlayers = room.players.filter((p) => p.chips > 0 && p.isConnected);
     if (activeChipsPlayers.length < 2) {
       // Game over! Not enough players with chips. Stay on table and prompt host.
@@ -337,13 +345,14 @@ export class DealerBot {
   /**
    * Ends game and returns room back to waiting lobby
    */
-  public returnToLobby(room: Room): void {
+  public returnToLobby(room: Room, notice?: string): void {
     this.clearTimers(room);
     room.isGameOver = false;
     room.gameWinner = null;
     room.isGameActive = false;
     room.dealerBotStatus = 'ready';
     room.engine = null;
+    room.notice = notice || null;
     for (const p of room.players) {
       p.isReady = false;
       p.status = 'active';

@@ -228,14 +228,15 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, dealer
       dealerBot.restartGame(room);
     });
 
-    // Return to Lobby (Host only)
+    // Return to Lobby (Host or sole remaining player)
     socket.on(SOCKET_EVENTS.GAME_RETURN_TO_LOBBY, () => {
       const roomCode = socket.data.roomCode;
       const playerId = socket.data.playerId;
       if (!roomCode || !playerId) return;
 
       const room = roomManager.getRoom(roomCode);
-      if (!room || room.hostPlayerId !== playerId) return;
+      if (!room) return;
+      if (room.hostPlayerId !== playerId && room.players.length > 1) return;
 
       dealerBot.returnToLobby(room);
     });
@@ -270,7 +271,13 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, dealer
       socket.leave(roomCode);
       delete socket.data.roomCode;
 
-      dealerBot.broadcastRoomState(room);
+      if (roomManager.getRoom(roomCode)) {
+        if (room.isGameActive && room.players.length <= 1) {
+          dealerBot.returnToLobby(room, 'Odada tek kişi kaldığı için oyun kapatıldı ve lobiye dönüldü.');
+        } else {
+          dealerBot.broadcastRoomState(room);
+        }
+      }
     });
 
     // Kick Player (Host only)
@@ -315,7 +322,13 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, dealer
       }
 
       roomManager.leaveRoom(room, targetPlayerId);
-      dealerBot.broadcastRoomState(room);
+      if (roomManager.getRoom(roomCode)) {
+        if (room.isGameActive && room.players.length <= 1) {
+          dealerBot.returnToLobby(room, 'Odada tek kişi kaldığı için oyun kapatıldı ve lobiye dönüldü.');
+        } else {
+          dealerBot.broadcastRoomState(room);
+        }
+      }
     });
 
     // Disconnect
@@ -323,15 +336,23 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, dealer
       const res = roomManager.handleDisconnect(socket.id);
       if (res) {
         const { room, player } = res;
-        dealerBot.broadcastRoomState(room);
 
-        // If it was this player's turn, start the disconnect tolerance timer
-        if (
-          room.engine &&
-          room.engine.currentTurnSeat === player.seatIndex &&
-          room.engine.stage !== 'ended'
-        ) {
-          dealerBot.scheduleTurnTimer(room);
+        // Check if all players in the room are now disconnected
+        const allDisconnected = room.players.length === 0 || room.players.every((p) => !p.isConnected);
+        if (allDisconnected) {
+          // Schedule room destruction after 60 seconds (grace period for temporary blips or page reload)
+          roomManager.scheduleDisconnectCleanup(room.code, 60 * 1000);
+        } else {
+          dealerBot.broadcastRoomState(room);
+
+          // If it was this player's turn, start the turn timer
+          if (
+            room.engine &&
+            room.engine.currentTurnSeat === player.seatIndex &&
+            room.engine.stage !== 'ended'
+          ) {
+            dealerBot.scheduleTurnTimer(room);
+          }
         }
       }
     });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RoomManager } from '../roomManager.js';
+import { DealerBot } from '../dealerBot.js';
 import { getRoomHands, saveHandRecord } from '../db.js';
 
 describe('Server Room Management & DB Integration', () => {
@@ -40,6 +41,26 @@ describe('Server Room Management & DB Integration', () => {
     expect(room.players.length).toBe(1);
     expect(room.hostPlayerId).toBe('p2');
     expect(room.players[0].isHost).toBe(true);
+
+    // When the last player leaves, the room is completely destroyed from memory
+    rm.leaveRoom(room, 'p2');
+    expect(rm.getRoom(room.code)).toBeUndefined();
+  });
+
+  it('destroys room when all players disconnect and cleanup executes', async () => {
+    const rm = new RoomManager();
+    const room = rm.createRoom('p1', 'Enes', 'sock1', '127.0.0.1');
+    rm.joinRoom(room.code, 'p2', 'Ayşe', 'sock2', '127.0.0.1');
+
+    // Both players disconnect
+    rm.handleDisconnect('sock1');
+    rm.handleDisconnect('sock2');
+
+    // Schedule cleanup with 50ms for test
+    rm.scheduleDisconnectCleanup(room.code, 50);
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    expect(rm.getRoom(room.code)).toBeUndefined();
   });
 
   it('saves hand history to SQLite and retrieves it correctly', () => {
@@ -58,5 +79,22 @@ describe('Server Room Management & DB Integration', () => {
     const last = hands[hands.length - 1];
     expect(last.pot).toBe(240);
     expect(last.winners[0].nick).toBe('Enes');
+  });
+
+  it('returns room to lobby and sets notice when dealerBot.returnToLobby is invoked', () => {
+    const rm = new RoomManager();
+    const room = rm.createRoom('p1', 'Enes', 'sock1', '127.0.0.1');
+    rm.joinRoom(room.code, 'p2', 'Ayşe', 'sock2', '127.0.0.1');
+    room.isGameActive = true;
+
+    const mockIo = {
+      to: () => ({ emit: () => {} }),
+    } as any;
+    const bot = new DealerBot(mockIo);
+    bot.returnToLobby(room, 'Odada tek kişi kaldığı için oyun kapatıldı ve lobiye dönüldü.');
+
+    expect(room.isGameActive).toBe(false);
+    expect(room.engine).toBeNull();
+    expect(room.notice).toBe('Odada tek kişi kaldığı için oyun kapatıldı ve lobiye dönüldü.');
   });
 });

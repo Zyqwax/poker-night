@@ -125,6 +125,7 @@ export class RoomManager {
       throw new Error('Oda bulunamadı. Lütfen 6 haneli kodu kontrol et.');
     }
 
+    this.cancelDisconnectCleanup(room.code);
     room.lastActivityAt = Date.now();
 
     // Check if player is reconnecting
@@ -196,17 +197,79 @@ export class RoomManager {
   }
 
   /**
+   * Immediately destroys a room, clears all timers, closes DB record and removes from memory
+   */
+  public destroyRoom(rawCode: string): void {
+    const code = parseRoomCode(rawCode);
+    const room = this.rooms.get(code);
+    if (!room) return;
+
+    if (room.turnTimer) {
+      clearTimeout(room.turnTimer);
+      room.turnTimer = null;
+    }
+    if (room.disconnectTimer) {
+      clearTimeout(room.disconnectTimer);
+      room.disconnectTimer = null;
+    }
+    if (room.stageTimer) {
+      clearTimeout(room.stageTimer);
+      room.stageTimer = null;
+    }
+
+    closeRoom(code);
+    this.rooms.delete(code);
+  }
+
+  /**
+   * Schedule room destruction if all players remain disconnected
+   */
+  public scheduleDisconnectCleanup(rawCode: string, delayMs = 60000): void {
+    const code = parseRoomCode(rawCode);
+    const room = this.rooms.get(code);
+    if (!room) return;
+
+    if (room.disconnectTimer) {
+      clearTimeout(room.disconnectTimer);
+    }
+
+    room.disconnectTimer = setTimeout(() => {
+      const currentRoom = this.rooms.get(code);
+      if (currentRoom) {
+        const allDisconnected = currentRoom.players.length === 0 || currentRoom.players.every((p) => !p.isConnected);
+        if (allDisconnected) {
+          this.destroyRoom(code);
+        }
+      }
+    }, delayMs);
+  }
+
+  public cancelDisconnectCleanup(rawCode: string): void {
+    const code = parseRoomCode(rawCode);
+    const room = this.rooms.get(code);
+    if (room && room.disconnectTimer) {
+      clearTimeout(room.disconnectTimer);
+      room.disconnectTimer = null;
+    }
+  }
+
+  /**
    * Handle player explicitly leaving room
    */
   public leaveRoom(room: Room, playerId: string): void {
     const idx = room.players.findIndex((p) => p.id === playerId);
     if (idx === -1) return;
 
-    const leavingPlayer = room.players[idx];
     room.lastActivityAt = Date.now();
 
     // Remove player
     room.players.splice(idx, 1);
+
+    // If room is empty or everyone left/disconnected, destroy room immediately
+    if (room.players.length === 0 || room.players.every((p) => !p.isConnected)) {
+      this.destroyRoom(room.code);
+      return;
+    }
 
     // If host left, pass host status to oldest connected player
     if (room.hostPlayerId === playerId) {
@@ -216,23 +279,20 @@ export class RoomManager {
         nextHost.isHost = true;
       }
     }
-
-    // If room is empty, close it
-    if (room.players.length === 0) {
-      closeRoom(room.code);
-    }
   }
 
   /**
-   * Clean up empty rooms older than 30 minutes
+   * Periodic cleanup: destroy empty rooms and rooms where all players are disconnected
    */
   public cleanupInactiveRooms(): void {
-    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+    const now = Date.now();
+    const sixtySecondsAgo = now - 60 * 1000;
+    const twoHoursAgo = now - 2 * 60 * 60 * 1000;
+
     for (const [code, room] of this.rooms.entries()) {
-      const allDisconnected = room.players.every((p) => !p.isConnected);
-      if (allDisconnected && room.lastActivityAt < thirtyMinutesAgo) {
-        closeRoom(code);
-        this.rooms.delete(code);
+      const allDisconnected = room.players.length === 0 || room.players.every((p) => !p.isConnected);
+      if ((allDisconnected && room.lastActivityAt < sixtySecondsAgo) || room.lastActivityAt < twoHoursAgo) {
+        this.destroyRoom(code);
       }
     }
   }

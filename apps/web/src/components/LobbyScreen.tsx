@@ -53,7 +53,17 @@ export const LobbyScreen: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="my-auto py-6 space-y-8">
+      <div className="my-auto py-6 space-y-6">
+        {/* Notice Banner if single player left game or error occurred */}
+        {(roomState.notice || lastError) && (
+          <div className="bg-amber-950/70 border border-amber-500/70 text-amber-200 p-3 rounded-xl text-xs flex items-center gap-2.5 shadow-lg">
+            <span className="text-lg">⚠️</span>
+            <span className="font-medium leading-relaxed">
+              {roomState.notice || lastError}
+            </span>
+          </div>
+        )}
+
         {/* Room Code Section */}
         <div className="space-y-1">
           <span className="text-stone-400 text-xs block">{t.lobby.roomCode}</span>

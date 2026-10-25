@@ -43,9 +43,9 @@ export const CardView: React.FC<CardViewProps> = ({
   const shouldReduceMotion = useReducedMotion();
 
   const sizeClasses = {
-    sm: 'w-9 h-13 sm:w-10 sm:h-14 text-xs rounded-md',
-    md: 'w-11 h-16 sm:w-13 sm:h-18 md:w-14 md:h-20 text-sm sm:text-base rounded-lg',
-    lg: 'w-13 h-18 sm:w-16 sm:h-22 md:w-16 md:h-24 text-base sm:text-lg rounded-xl',
+    sm: 'w-7 h-10 sm:w-9 sm:h-13 text-[10px] sm:text-xs rounded',
+    md: 'w-9 h-13 sm:w-10 sm:h-14 lg:w-13 lg:h-18 text-xs sm:text-sm lg:text-base rounded-md sm:rounded-lg',
+    lg: 'w-11 h-16 sm:w-13 sm:h-18 lg:w-16 lg:h-22 text-sm sm:text-base lg:text-lg rounded-lg sm:rounded-xl',
   }[size];
 
   if (empty) {

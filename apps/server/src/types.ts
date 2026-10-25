@@ -29,4 +29,5 @@ export interface Room {
   previousDealerSeat: number;
   isGameOver?: boolean;
   gameWinner?: { playerId: string; nick: string; chips: number } | null;
+  notice?: string | null;
 }

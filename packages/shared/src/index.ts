@@ -147,6 +147,7 @@ export interface RoomStatePayload {
   stats: PlayerGameStats[];
   isGameOver?: boolean;
   gameWinner?: { playerId: string; nick: string; chips: number } | null;
+  notice?: string | null;
 }
 
 // Socket Events
